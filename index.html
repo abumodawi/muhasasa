@@ -128,7 +128,7 @@ function compute(){
 
 function render(){
   const r=compute();
-  $('cards').innerHTML=[['مجموع المبلغ المحصّل',fmt(r.F)],['مجموع الديون',fmt(r.total)],['الديون الداخلة في المحاصة',fmt(r.inc)],['السهم (النسبة)',(r.ratio*100).toFixed(2)+'%'],['المتبقي بعد الممتازين',fmt(r.left)],['أقدم تاريخ إحالة',fh(r.minRef)],['أقدم تاريخ حجز',fh(r.minSeiz)]].map(x=>`<div class="c"><small>${x[0]}</small><b>${x[1]}</b></div>`).join('');
+  $('cards').innerHTML=[['مجموع المبلغ المحصّل',fmt(r.F)],['مجموع الديون',fmt(r.total)],['الديون الداخلة في المحاصة',fmt(r.inc)],['السهم (النسبة)',(r.ratio*100).toFixed(2)+'%'],['المتبقي بعد الديون الممتازة',fmt(r.left)],['أقدم تاريخ إحالة',fh(r.minRef)],['أقدم تاريخ حجز',fh(r.minSeiz)]].map(x=>`<div class="c"><small>${x[0]}</small><b>${x[1]}</b></div>`).join('');
   if(!r.rows.length){$('tb').innerHTML='<tr><td colspan="13" class="empty">لا توجد طلبات. اضغط «إضافة طلب جديد».</td></tr>';return}
   $('tb').innerHTML=r.rows.map((o,i)=>`<tr class="${o.status==='مستبعد'?'ex':'ok'}${i===0?' oldest':''}">
 <td>${i+1}</td><td>${esc(o.no)}${i===0?'<span class="badge">الأقدم</span>':''}</td><td>${fh(o.ref)}</td><td>${fh(o.bond)}</td>
@@ -234,11 +234,15 @@ function mkMin(){
   const money=n=>fmt(n)+' ريال',ns=r.rows.filter(o=>+o.avail>0);
   let t='أُعد هذا المحضر من قبل وحدة العمليات المالية لقسمة الإشعارات التالية:\n';
   t+=ns.length?ns.map((o,i)=>`${AR(i+1)}- الإشعار رقم (${dig(o.notice)||'—'}) مبلغ وقدره (${money(o.avail)})`).join('\n'):'—';
-  t+='\n\nوبناءً على المادة رقم 35/2 من نظام التنفيذ تمت قسمة حصيلة التنفيذ بين الدائنين على النحو التالي:\n';
+  t+='\n\nوبناءً على المادة رقم 36 من نظام التنفيذ تمت قسمة حصيلة التنفيذ بين الدائنين على النحو التالي:\n';
   t+=r.rows.map((o,i)=>{
-    const n=`${AR(i+1)}- الطلب رقم (${dig(o.no)})`,S=money(o.share),L=money(Math.max(0,(+o.rem||0)-o.share)),why=o.reason.split(' — وُزّع')[0];
-    if(o.status==='مستبعد')return o.share>0.004?`${n} استُبعد من المحاصة (${why}) إلا أنه أخذ من الفائض بعد وفاء الدين الممتاز والعادي، ونصيبه مبلغ وقدره (${S}) والمتبقي له بعد المحاصة (${L}).`:`${n} استُبعد من المحاصة (${why}).`;
-    return `${n} ونصيبه مبلغ وقدره (${S})${o.status==='ممتاز'?' لكونه دينًا ممتازًا،':''} والمتبقي له بعد المحاصة (${L}).`;
+    const n=`${AR(i+1)}- الطلب (${dig(o.no)})`,rem=money(+o.rem||0),S=money(o.share),L=money(Math.max(0,(+o.rem||0)-o.share)),why=o.reason.split(' — وُزّع')[0];
+    const body=`المتبقي له من الدين مبلغ (${rem}) ونصيبه من المحاصة (${S})`;
+    if(o.status==='مستبعد'){
+      const w=why===R37?'لكون تاريخ السند محرر بعد تاريخ أقدم حجز وذلك وفق المادة 37 من لائحة التنفيذ':`(${why})`;
+      return o.share>0.004?`${n} مستبعد من المحاصة ${w}، إلا أنه أخذ من الفائض بعد وفاء الديون الممتازة والعادية؛ ${body} ويبقى من الدين بعد المحاصة (${L}).`:`${n} مستبعد من المحاصة ${w}.`;
+    }
+    return `${n} ${body}${o.status==='ممتاز'?' لكونه ديناً ممتازاً':''} ويبقى من الدين بعد المحاصة (${L}).`;
   }).join('\n');
   t+='\n\nوللبيان جرى إثباته، والله الموفق.';
   $('mn').textContent=AR(t.replace(/(\d),(?=\d)/g,'$1٬').replace(/(\d)\.(?=\d)/g,'$1٫'));
