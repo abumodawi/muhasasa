@@ -84,7 +84,7 @@ tr,.c{break-inside:avoid}}
 <label>تاريخ الحجز</label><div class="dt" data-k="seiz"></div>
 <label>المبلغ المتبقي لطالب التنفيذ</label><input id="rem" inputmode="decimal">
 <label>المبلغ المتوفر</label><input id="avail" inputmode="decimal"><div id="nw" hidden><label>رقم الإشعار</label><input id="notice" placeholder="أدخل أو الصق رقم الإشعار"></div>
-<label>نوع الدين</label><select id="dt"><option>ممتاز</option><option selected>عادي</option><option>مستبعد</option></select>
+<label>نوع الدين</label><select id="dt"><option>ممتاز</option><option selected>عادي</option></select>
 <label>ملاحظة</label><textarea id="nt" rows="2"></textarea>
 <div id="wr" class="warn" hidden></div><div class="row"><button id="save">حفظ</button><button class="s" id="cancel">إلغاء</button></div>
 </form></dialog>
@@ -97,6 +97,7 @@ const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(orders))}catch(e)
 const dig=s=>String(s??'').replace(/[٠-٩]/g,c=>c.charCodeAt(0)-1632).replace(/[۰-۹]/g,c=>c.charCodeAt(0)-1776).replace(/٫/g,'.').replace(/٬/g,',');
 const esc=s=>dig(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=n=>(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const LB={'ممتاز':'له حق الأولوية','عادي':'دين عادي','مستبعد':'مستبعد'};
 const R37='تاريخ السند بعد أقدم تاريخ حجز — المادة ٣٧ من النظام';
 
 function compute(){
@@ -106,11 +107,8 @@ function compute(){
   rows.forEach(o=>{
     let reason='',auto;
     if(minSeiz&&o.bond&&o.bond>minSeiz&&!(o.type==='حكم'&&o.jt==='مدافعة')){auto='مستبعد';reason=R37}
-    else if(o.dt==='مستبعد'){auto='مستبعد';reason='مستبعد حسب نوع الدين'}
-    else auto=o.dt;
-    o.auto=auto;o.status=o.ov||auto;o.reason=reason;o.share=0;
-    if(o.status==='مستبعد'&&!reason)o.reason='استبعاد يدوي';
-    if(o.ov&&o.ov!=='مستبعد'&&reason)o.reason='أُدخل يدوياً (كان: '+reason+')';
+    else auto=o.dt==='ممتاز'?'ممتاز':'عادي';
+    o.auto=auto;o.status=auto;o.reason=reason;o.share=0;
   });
   const inc=rows.filter(o=>o.status!=='مستبعد');
   const F=orders.reduce((s,o)=>s+(+o.avail||0),0);
@@ -132,8 +130,8 @@ function render(){
   if(!r.rows.length){$('tb').innerHTML='<tr><td colspan="13" class="empty">لا توجد طلبات. اضغط «إضافة طلب جديد».</td></tr>';return}
   $('tb').innerHTML=r.rows.map((o,i)=>`<tr class="${o.status==='مستبعد'?'ex':'ok'}${i===0?' oldest':''}">
 <td>${i+1}</td><td>${esc(o.no)}${i===0?'<span class="badge">الأقدم</span>':''}</td><td>${fh(o.ref)}</td><td>${fh(o.bond)}</td>
-<td>${esc(o.type)}${o.type==='حكم'?' ('+esc(o.jt)+')':''}</td><td>${fh(o.seiz)}</td><td>${fmt(o.rem)}</td><td>${fmt(o.avail)}</td><td>${esc(o.dt)}</td>
-<td><select data-st="${o.id}">${['ممتاز','عادي','مستبعد'].map(s=>`<option${s===o.status?' selected':''}>${s}</option>`).join('')}</select></td>
+<td>${esc(o.type)}${o.type==='حكم'?' ('+esc(o.jt)+')':''}</td><td>${fh(o.seiz)}</td><td>${fmt(o.rem)}</td><td>${fmt(o.avail)}</td><td><select data-dt="${o.id}"><option${o.dt==='ممتاز'?' selected':''}>ممتاز</option><option${o.dt!=='ممتاز'?' selected':''}>عادي</option></select></td>
+<td><b>${LB[o.status]}</b></td>
 <td><b>${fmt(o.share)}</b></td><td>${esc(o.reason)}${o.note?'<br><small>'+esc(o.note)+'</small>':''}</td>
 <td style="white-space:nowrap"><button class="s" data-ed="${o.id}">تعديل</button> <button class="s" data-dl="${o.id}">حذف</button></td></tr>`).join('');
 }
@@ -220,9 +218,8 @@ $('tb').onclick=e=>{
   if(dl)ask('حذف هذا الطلب؟',()=>{orders=orders.filter(x=>x.id!==dl);persist();render()});
 };
 $('tb').onchange=e=>{
-  const id=e.target.dataset.st;if(!id)return;
-  const o=orders.find(x=>x.id===id),c=compute().rows.find(x=>x.id===id);
-  if(e.target.value===c.auto)delete o.ov;else o.ov=e.target.value;
+  const id=e.target.dataset.dt;if(!id)return;
+  const o=orders.find(x=>x.id===id);o.dt=e.target.value==='ممتاز'?'ممتاز':'عادي';delete o.ov;
   persist();render();
 };
 $('prt').onclick=()=>{$('pd').textContent='تاريخ الطباعة: '+fh(new Date().toISOString().slice(0,10));window.print()};
@@ -242,6 +239,7 @@ function mkMin(){
       const w=why===R37?'لكون تاريخ السند محرر بعد تاريخ أقدم حجز وذلك وفق المادة 37 من لائحة التنفيذ':`(${why})`;
       return o.share>0.004?`${n} مستبعد من المحاصة ${w}، إلا أنه أخذ من الفائض بعد وفاء الديون الممتازة والعادية؛ ${body} ويبقى من الدين بعد المحاصة (${L}).`:`${n} مستبعد من المحاصة ${w}.`;
     }
+    if(o.status!=='ممتاز'&&o.share<=0.004&&r.left<=0.004&&r.rows.some(x=>x.status==='ممتاز'))return `${n} المتبقي له من الدين مبلغ (${rem}) ولم يدخل في المحاصة لوجود ديون ممتازة.`;
     return `${n} ${body}${o.status==='ممتاز'?' لكونه ديناً ممتازاً':''} ويبقى من الدين بعد المحاصة (${L}).`;
   }).join('\n');
   t+='\n\nوللبيان جرى إثباته، والله الموفق.';
@@ -292,7 +290,7 @@ $('exb').onclick=doExport;$('imb').onclick=()=>$('imf').click();
 $('imf').onchange=async()=>{const f=$('imf').files[0];$('imf').value='';if(!f)return;
   try{const j=JSON.parse(await f.text());if(!Array.isArray(j.orders))throw 0;
     const D=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)?v:'',pick=(v,a,z)=>a.includes(v)?v:z,DT=['ممتاز','عادي','مستبعد'];
-    const list=j.orders.map((o,i)=>({id:'i'+Date.now().toString(36)+i,no:dig(o.no),ref:D(o.ref),bond:D(o.bond),type:pick(o.type,['سند لأمر','شيك','حكم','أخرى'],'أخرى'),jt:o.type==='حكم'?pick(o.jt,['نكول','إقرار','مدافعة'],'نكول'):'',seiz:D(o.seiz),rem:+o.rem||0,avail:+o.avail||0,dt:pick(o.dt,DT,'عادي'),notice:dig(o.notice),note:dig(o.note),...(DT.includes(o.ov)?{ov:o.ov}:{})}));
+    const list=j.orders.map((o,i)=>({id:'i'+Date.now().toString(36)+i,no:dig(o.no),ref:D(o.ref),bond:D(o.bond),type:pick(o.type,['سند لأمر','شيك','حكم','أخرى'],'أخرى'),jt:o.type==='حكم'?pick(o.jt,['نكول','إقرار','مدافعة'],'نكول'):'',seiz:D(o.seiz),rem:+o.rem||0,avail:+o.avail||0,dt:pick(o.dt,['ممتاز','عادي'],'عادي'),notice:dig(o.notice),note:dig(o.note)}));
     const go=()=>{orders=list;curId=null;curTitle=String(j.title||'');persist();remember();showCur();render();flash('تم استيراد '+list.length+' طلب')};
     if(orders.length)ask('سيتم استبدال الطلبات الحالية بالملف المستورد. متابعة؟',go,'نعم، استيراد');else go()
   }catch(e){flash('الملف غير صالح')}};
