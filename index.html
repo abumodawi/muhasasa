@@ -46,6 +46,7 @@ h1.ttl{font-family:Almarai,Tahoma,sans-serif;font-weight:700;font-size:2.2rem;te
 .opts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:10px 0 14px}
 @media print{.opts{display:none}.top img{height:60px}.top{padding:6px 10px}h1.ttl{font-size:1.5rem;margin:6px 0}}
 [hidden]{display:none!important}.home{padding:28px}.home button{padding:18px 36px;font-size:1.15rem}
+@media print{#app,main{overflow:visible!important;height:auto!important}#mws{display:block!important}.mn{display:block!important;color:#000!important;background:#fff!important;overflow:visible!important;height:auto!important;break-inside:auto!important}.mh{display:flex!important}}
 .hd{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;margin-bottom:14px}
 .hd img{height:96px;width:auto}.hd h1{margin:0;font-size:1.8rem}.cr{color:var(--mut);font-size:.9rem;line-height:1.6}.pd{display:none}
 @media print{
@@ -87,7 +88,7 @@ tr,.c{break-inside:avoid}}
 <div id="jw" hidden><label>نوع الحكم</label><select id="jt"><option>نكول</option><option>إقرار</option><option>مدافعة</option></select></div>
 <label>تاريخ الحجز</label><div class="dt" data-k="seiz"></div>
 <label>المبلغ المتبقي لطالب التنفيذ</label><input id="rem" inputmode="decimal">
-<label>المبلغ المتوفر</label><input id="avail" inputmode="decimal"><div id="nw" hidden><label>رقم الإشعار</label><input id="notice" placeholder="أدخل أو الصق رقم الإشعار"></div>
+<label>المبلغ المتوفر</label><input id="avail" inputmode="decimal">
 <label>نوع الدين</label><select id="dt"><option>ممتاز</option><option selected>عادي</option></select>
 <label>ملاحظة</label><textarea id="nt" rows="2"></textarea>
 <div id="wr" class="warn" hidden></div><div class="row"><button id="save">حفظ</button><button class="s" id="cancel">إلغاء</button></div>
@@ -184,19 +185,19 @@ document.querySelectorAll('.dt').forEach(el=>{
 function applyMode(){document.querySelectorAll('.hpk').forEach(e=>e.style.display=mode==='h'?'block':'none');document.querySelectorAll('.gpk').forEach(e=>e.style.display=mode==='g'?'block':'none')}
 document.querySelectorAll('input[name=md]').forEach(r=>r.onchange=()=>{mode=r.value;applyMode()});
 applyMode();
-const F=['no','ref','bond','type','jt','seiz','rem','avail','dt','notice'];
+const F=['no','ref','bond','type','jt','seiz','rem','avail','dt'];
 const syncJ=()=>{$('jw').hidden=$('type').value!=='حكم'};
 $('type').onchange=syncJ;
 function open_(o){
   edit=o?o.id:null;$('ttl').textContent=o?'تعديل الطلب':'طلب جديد';
   F.forEach(k=>$(k).value=o?(o[k]??''):(k==='type'?'سند لأمر':k==='jt'?'نكول':k==='dt'?'عادي':''));
-  $('nt').value=o?o.note||'':'';syncJ();['ref','bond','seiz'].forEach(k=>{$(k+'_c').hidden=true;setD(k,$(k).value)});$('nw').hidden=!(parseFloat(String($('avail').value).replace(/,/g,''))>0);$('wr').hidden=true;$('dlg').showModal();
+  $('nt').value=o?o.note||'':'';syncJ();['ref','bond','seiz'].forEach(k=>{$(k+'_c').hidden=true;setD(k,$(k).value)});$('wr').hidden=true;$('dlg').showModal();
 }
 $('add').onclick=()=>open_();
 $('cancel').onclick=()=>$('dlg').close();
 $('save').onclick=()=>{
   const d={};F.forEach(k=>d[k]=dig($(k).value).trim());d.note=dig($('nt').value).trim();
-  d.rem=parseFloat(String(d.rem).replace(/,/g,''))||0;d.avail=parseFloat(String(d.avail).replace(/,/g,''))||0;if(!(d.avail>0))d.notice='';
+  d.rem=parseFloat(String(d.rem).replace(/,/g,''))||0;d.avail=parseFloat(String(d.avail).replace(/,/g,''))||0;
   if(!d.no){$('no').focus();return}
   const er=[];
   if(d.bond&&d.ref&&d.bond>d.ref)er.push('تاريخ السند لا يجوز أن يكون بعد تاريخ الإحالة');
@@ -214,7 +215,7 @@ let cfcb=null;
 function ask(m,cb,y){$('cm').textContent=m;$('cy').textContent=y||'نعم، حذف';cfcb=cb;$('cf').showModal()}
 $('cy').onclick=()=>{$('cf').close();if(cfcb)cfcb()};
 $('cn').onclick=()=>$('cf').close();
-['no','rem','avail','notice'].forEach(k=>$(k).oninput=()=>{$(k).value=dig($(k).value);$('nw').hidden=!(parseFloat($('avail').value.replace(/,/g,''))>0)});
+['no','rem','avail'].forEach(k=>$(k).oninput=()=>{$(k).value=dig($(k).value)});
 $('clr').onclick=()=>{if(orders.length)ask('حذف جميع الطلبات؟',()=>{orders=[];curId=null;curTitle='';persist();remember();showCur();render();showHome()})};
 $('tb').onclick=e=>{
   const t=e.target,ed=t.dataset.ed,dl=t.dataset.dl;
@@ -226,26 +227,27 @@ $('tb').onchange=e=>{
   const o=orders.find(x=>x.id===id);o.dt=e.target.value==='ممتاز'?'ممتاز':'عادي';delete o.ov;
   persist();render();
 };
-$('prt').onclick=()=>{$('pd').textContent='تاريخ الطباعة: '+fh(new Date().toISOString().slice(0,10));window.print()};
+$('prt').onclick=()=>{mkMin();$('pd').textContent='تاريخ الطباعة: '+fh(new Date().toISOString().slice(0,10));window.print()};
 const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
 function mkMin(){
   const r=compute(),sec=$('mws');
   if(!r.rows.length){sec.hidden=true;return}
   sec.hidden=false;
-  const money=n=>fmt(n)+' ريال',ns=r.rows.filter(o=>+o.avail>0);
-  let t='أُعد هذا المحضر من قبل وحدة العمليات المالية لقسمة الإشعارات التالية:\n';
-  t+=ns.length?ns.map((o,i)=>`${AR(i+1)}- الإشعار رقم (${dig(o.notice)||'—'}) مبلغ وقدره (${money(o.avail)})`).join('\n'):'—';
-  t+='\n\nوبناءً على المادة رقم 36 من نظام التنفيذ تمت قسمة حصيلة التنفيذ بين الدائنين على النحو التالي:\n';
+  const money=n=>fmt(n)+' ريال',ns=r.rows.filter(o=>+o.avail>0),no=o=>dig(o.no);
+  const src=ns.length>1?`المبالغ المجمعة في الطلب وقدرها (${money(r.F)})`:`المبلغ المحصل في الطلب وقدره (${money(r.F)})`;
+  const ln=(k,o,tail)=>`${AR(k)}- الطلب رقم (${no(o)}): المتبقي له من الدين مبلغ وقدره (${money(+o.rem||0)}) ونصيبه من المحاصة مبلغ وقدره (${money(o.share)})${tail}.`;
+  const exhausted=r.rows.some(x=>x.status==='ممتاز')&&r.left<=0.004;
+  let t=`أُعد هذا المحضر من قبل وحدة العمليات المالية بمحكمة التنفيذ المركزية، لقسمة ${src}.\n\nوبناءً على المادة رقم 36 من لائحة التنفيذ تمت قسمة حصيلة التنفيذ بين الدائنين على النحو التالي:\n`;
   t+=r.rows.map((o,i)=>{
-    const n=`${AR(i+1)}- الطلب (${dig(o.no)})`,rem=money(+o.rem||0),S=money(o.share),L=money(Math.max(0,(+o.rem||0)-o.share)),why=o.reason.split(' — وُزّع')[0];
-    const body=`المتبقي له من الدين مبلغ (${rem}) ونصيبه من المحاصة (${S})`;
-    if(o.status==='مستبعد'){
-      const w=why===R37?'لكون تاريخ السند محرر بعد تاريخ أقدم حجز وذلك وفق المادة 37 من لائحة التنفيذ':`(${why})`;
-      return o.share>0.004?`${n} مستبعد من المحاصة ${w}، إلا أنه أخذ من الفائض بعد وفاء الديون الممتازة والعادية؛ ${body} ويبقى من الدين بعد المحاصة (${L}).`:`${n} مستبعد من المحاصة ${w}.`;
-    }
-    if(o.status!=='ممتاز'&&o.share<=0.004&&r.left<=0.004&&r.rows.some(x=>x.status==='ممتاز'))return `${n} المتبقي له من الدين مبلغ (${rem}) ولم يدخل في المحاصة لوجود ديون ممتازة.`;
-    return `${n} ${body}${o.status==='ممتاز'?' لكونه ديناً ممتازاً':''} ويبقى من الدين بعد المحاصة (${L}).`;
+    if(o.status==='مستبعد')return `${AR(i+1)}- الطلب رقم (${no(o)}): استبعد من المحاصة بناءً على المادة 37 من لائحة التنفيذ.`;
+    if(o.status!=='ممتاز'&&o.share<=0.004&&exhausted)return `${AR(i+1)}- الطلب رقم (${no(o)}): المتبقي له من الدين مبلغ وقدره (${money(+o.rem||0)}) ولم يدخل في المحاصة لوجود ديون ممتازة.`;
+    return ln(i+1,o,o.status==='ممتاز'?' لكونه ديناً ممتازاً':'');
   }).join('\n');
+  const sx=r.rows.filter(o=>o.status==='مستبعد'&&o.share>0.004);
+  if(sx.length){
+    const full=sx.every(o=>o.share>=(+o.rem||0)-0.004);
+    t+=`\n\n${full?'ونظراً لوجود فائض يكفي بقية الديون فقد تمت قسمة المبلغ على النحو التالي:':'ونظراً لوجود فائض فقد تمت قسمة المبلغ بين بقية الديون على النحو التالي:'}\n`+sx.map((o,i)=>ln(i+1,o,'')).join('\n');
+  }
   t+='\n\nوللبيان جرى إثباته، والله الموفق.';
   $('mn').textContent=AR(t.replace(/(\d),(?=\d)/g,'$1٬').replace(/(\d)\.(?=\d)/g,'$1٫'));
 }
@@ -294,7 +296,7 @@ $('exb').onclick=doExport;$('imb').onclick=()=>$('imf').click();
 $('imf').onchange=async()=>{const f=$('imf').files[0];$('imf').value='';if(!f)return;
   try{const j=JSON.parse(await f.text());if(!Array.isArray(j.orders))throw 0;
     const D=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)?v:'',pick=(v,a,z)=>a.includes(v)?v:z,DT=['ممتاز','عادي','مستبعد'];
-    const list=j.orders.map((o,i)=>({id:'i'+Date.now().toString(36)+i,no:dig(o.no),ref:D(o.ref),bond:D(o.bond),type:pick(o.type,['سند لأمر','شيك','حكم','أخرى'],'أخرى'),jt:o.type==='حكم'?pick(o.jt,['نكول','إقرار','مدافعة'],'نكول'):'',seiz:D(o.seiz),rem:+o.rem||0,avail:+o.avail||0,dt:pick(o.dt,['ممتاز','عادي'],'عادي'),notice:dig(o.notice),note:dig(o.note)}));
+    const list=j.orders.map((o,i)=>({id:'i'+Date.now().toString(36)+i,no:dig(o.no),ref:D(o.ref),bond:D(o.bond),type:pick(o.type,['سند لأمر','شيك','حكم','أخرى'],'أخرى'),jt:o.type==='حكم'?pick(o.jt,['نكول','إقرار','مدافعة'],'نكول'):'',seiz:D(o.seiz),rem:+o.rem||0,avail:+o.avail||0,dt:pick(o.dt,['ممتاز','عادي'],'عادي'),note:dig(o.note)}));
     const go=()=>{orders=list;curId=null;curTitle=String(j.title||'');persist();remember();showCur();showApp();flash('تم استيراد '+list.length+' طلب')};
     if(orders.length)ask('سيتم استبدال الطلبات الحالية بالملف المستورد. متابعة؟',go,'نعم، استيراد');else go()
   }catch(e){flash('الملف غير صالح')}};
